@@ -8,6 +8,7 @@
 # @Contact: aceguipeng@foxmail.com 
 # @desc: 90book网自动签到
 '''
+import logging
 import time
 
 import requests
@@ -41,6 +42,26 @@ HEADERS = {
 }
 
 
+def _init_logger():
+    global logger
+    logger = logging.getLogger(__name__)
+    logger.setLevel(level=logging.INFO)
+    handler = logging.FileHandler("90_book.log")
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter(
+        fmt='[%(asctime)s] %(levelname)s [%(funcName)s: %(filename)s, %(lineno)d] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
+    handler.setFormatter(formatter)
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    logger.addHandler(handler)
+    logger.addHandler(console)
+
+
+_init_logger()
+
+
 def _get_login_cookie():
     resp = requests.get(LOGIN_URL, timeout=12)
     return resp.cookies
@@ -63,14 +84,17 @@ def _go_check_in(login_cookie):
         'time': str(round(time.time() * 1000))
     }
     resp = requests.get(CHECK_URL, cookies=login_cookie, headers=HEADERS, params=params)
-    print('status_code: {},resp_info: {}'.format(resp.status_code, resp.json()))
+    logger.info('status_code: {},resp_info: {}'.format(resp.status_code, resp.json()))
 
 
 def check_in_job():
     # 防止误差
-    cookies = _get_login_cookie()
-    login_cookie = _post_login_data(cookies)
-    _go_check_in(login_cookie)
+    try:
+        cookies = _get_login_cookie()
+        login_cookie = _post_login_data(cookies)
+        _go_check_in(login_cookie)
+    except Exception as e:
+        logger.exception(str(e))
 
 
 schedule.every().day.at("08:00").do(check_in_job)
@@ -78,8 +102,9 @@ schedule.every().day.at("08:00").do(check_in_job)
 
 def check_in():
     while True:
+        logger.debug('check in 90book app is starting')
         schedule.run_pending()
-        time.sleep(1)
+        time.sleep(0.1)
 
 
 if __name__ == '__main__':
